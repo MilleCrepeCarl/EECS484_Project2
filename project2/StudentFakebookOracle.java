@@ -21,13 +21,6 @@ public final class StudentFakebookOracle extends FakebookOracle {
     
     @Override
     // Query 0
-    // Query 0 asks you to identify information about Fakebook users’ birth months. You should
-    // determine in which month the most Fakebook users were born and in which month the fewest (but
-    // at least 1) Fakebook users were born; if there are ties, pick the month that occurs earliest in the
-    // calendar year. For each of those months, report the IDs, first names, and last names of the Fakebook
-    // users born in that month; sort the users in ascending order by ID. You should also report the total
-    // number of Fakebook users that have a birth month listed. You can safely assume that at least one
-    // Fakebook user has listed a birth month.
     // -----------------------------------------------------------------------------------
     // GOALS: (A) Find the total number of users for which a birth month is listed
     //        (B) Find the birth month in which the most users were born
