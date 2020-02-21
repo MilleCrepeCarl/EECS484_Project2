@@ -304,6 +304,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 results.add(mp);
             */
 
+
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
@@ -320,6 +321,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
     //            common friends
     //        (B) For each pair identified in (A), find the IDs, first names, and last names
     //            of all the two users' common friends
+    // TODO: num is too large? Return all pairs?
     public FakebookArrayList<UsersPair> suggestFriends(int num) throws SQLException {
         FakebookArrayList<UsersPair> results = new FakebookArrayList<UsersPair>("\n");
         
@@ -334,7 +336,68 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 up.addSharedFriend(u3);
                 results.add(up);
             */
+            stmt.executeUpdate(
+                    "CREATE view allfriends as (" +
+                            "SELECT user1_id as i1, user2_id as i2 " +
+                            "FROM " + FriendsTable +" "+
+                            ")Union( "+
+                            "SELECT user2_id as i1, user1_id as i2 " +
+                            "FROM " + FriendsTable +" "+
+                            ")");
+            stmt.executeUpdate(
+                    "CREATE view mutuals as (" +
+                            "SELECT f1.i1 as i1, f2.i2 as i2, f2.i1 as i3 " +
+                            "FROM allfriends f1 JOIN allfriends f2 " +
+                            "ON f1.i2=f2.i1 " +
+                            "WHERE f1.i1<f2.i2 and not exists (" +
+                            "SELECT * from "+FriendsTable+ " where user1_id=f1.i1 and user2_id=f2.i2 "+
+                            ")"+
+                            ")");
+            ArrayList<UsersPair> ups= new ArrayList<UsersPair>();
+            ArrayList<Long> i1= new ArrayList<Long>();
+            ArrayList<Long> i2= new ArrayList<Long>();
+            ResultSet rst = stmt.executeQuery(
+                    "SELECT mutuals.i1, u1.first_name, u1.last_name, mutuals.i2, u2.first_name, u2.last_name, count(mutuals.i3) as num "+
+                            "FROM mutuals, " + UsersTable+" u1, "+UsersTable+" u2 "+
+                            "WHERE mutuals.i1=u1.user_id and mutuals.i2=u2.user_id "+
+                            "group by mutuals.i1, u1.first_name, u1.last_name, mutuals.i2, u2.first_name, u2.last_name " +
+                            "ORDER by num DESC, mutuals.i1 ASC, mutuals.i2 ASC");
+            int p=0;
+            while(rst.next())
+            {
+                if(p>=num)
+                    break;
 
+                UserInfo u1 = new UserInfo(rst.getLong(1), rst.getString(2), rst.getString(3));
+                UserInfo u2 = new UserInfo(rst.getLong(4), rst.getString(5), rst.getString(6));
+                UsersPair up = new UsersPair(u1, u2);
+                i1.add(rst.getLong(1));
+                i2.add(rst.getLong(4));
+                ups.add(up);
+            }
+            rst.close();
+            System.out.println("Here!");
+
+
+            for(int j=0;j<num;j++) {
+                ResultSet pairRst = stmt.executeQuery(
+                        "SELECT mutuals.i3, u3.first_name, u3.last_name " +
+                                "FROM mutuals, " + UsersTable+" u3, " +
+                                "where u3.user_id=mutuals.i3 and mutuals.i1=" + Long.toString(i1.get(j))+ " and mutuals.i2="+Long.toString(i2.get(j))+" "+
+                                "ORDER by mutuals.i3 ASC");
+                while(pairRst.next())
+                {
+                    UserInfo us = new UserInfo(rst.getInt(1), rst.getString(2), rst.getString(3));
+                    ups.get(j).addSharedFriend(us);
+                }
+                results.add(ups.get(j));
+                pairRst.close();
+            }
+            stmt.executeUpdate(
+                    "Drop view mutuals");
+            stmt.executeUpdate(
+                    "Drop view allfriends");
+            stmt.close();
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
