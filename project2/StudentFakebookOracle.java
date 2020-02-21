@@ -303,6 +303,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 mp.addSharedPhoto(p);
                 results.add(mp);
             */
+
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
@@ -333,6 +334,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 up.addSharedFriend(u3);
                 results.add(up);
             */
+
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
@@ -357,12 +359,39 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 info.addState("New Hampshire");
                 return info;
             */
-            return new EventStateInfo(-1);                // placeholder for compilation
+            ResultSet rst = stmt.executeQuery(
+                    "SELECT MAX(COUNT(e.event_id)) " +
+                            "FROM " + EventsTable + " e JOIN " + CitiesTable+" c " +
+                            "ON e.event_city_id=c.city_id "+
+                            "GROUP BY c.state_name");
+            int maxNum=0;
+            while(rst.next())
+            {
+                maxNum=rst.getInt(1);
+            }
+            ResultSet secondrst = stmt.executeQuery(
+                    "SELECT c.state_name " +
+                            "FROM " + EventsTable + " e JOIN " + CitiesTable+" c " +
+                            "ON e.event_city_id=c.city_id "+
+                            "GROUP BY c.state_name " +
+                            "Having count(e.event_id)="+Integer.toString(maxNum)+" "+
+                            "ORDER BY c.state_name ASC");
+            EventStateInfo info = new EventStateInfo(maxNum);
+            while(secondrst.next())
+            {
+                String sName=secondrst.getString(1);
+                info.addState(sName);
+            }
+            secondrst.close();
+            rst.close();
+            stmt.close();
+            return info;
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
             return new EventStateInfo(-1);
         }
+
     }
     
     @Override
@@ -372,6 +401,8 @@ public final class StudentFakebookOracle extends FakebookOracle {
     //            with User ID <userID>
     //        (B) Find the ID, first name, and last name of the youngest friend of the user
     //            with User ID <userID>
+    // TODO: in friends table one can not friend with self right?
+    // TODO: Ask GSIs about when to use long and when to use int
     public AgeInfo findAgeInfo(long userID) throws SQLException {
         try (Statement stmt = oracle.createStatement(FakebookOracleConstants.AllScroll, FakebookOracleConstants.ReadOnly)) {
             /*
@@ -381,7 +412,31 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 UserInfo young = new UserInfo(80000000, "Neil", "deGrasse Tyson");
                 return new AgeInfo(old, young);
             */
-            return new AgeInfo(new UserInfo(-1, "UNWRITTEN", "UNWRITTEN"), new UserInfo(-1, "UNWRITTEN", "UNWRITTEN"));                // placeholder for compilation
+            ResultSet oldRst = stmt.executeQuery(
+                    "SELECT u.user_id, u.first_name,u.last_name " +
+                            "FROM "+FriendsTable+" f ,"+ UsersTable+" u " +
+                            "WHERE (f.user1_id=u.user_id and f.user2_id="+ Long.toString(userID)+ " ) or ( f.user2_id=u.user_id and f.user1_id="+ Long.toString(userID)+" ) "+
+                            "ORDER BY u.YEAR_OF_BIRTH ASC,u.MONTH_OF_BIRTH ASC,u.DAY_OF_BIRTH ASC, u.user_id DESC"
+            );
+            UserInfo old;
+            UserInfo young;
+
+            oldRst.next();
+            old = new UserInfo(oldRst.getInt(1), oldRst.getString(2), oldRst.getString(3));
+
+            ResultSet youngRst = stmt.executeQuery(
+                    "SELECT u.user_id, u.first_name,u.last_name " +
+                            "FROM "+FriendsTable+" f ,"+ UsersTable+" u " +
+                            "WHERE (f.user1_id=u.user_id and f.user2_id="+ Long.toString(userID)+ " ) or ( f.user2_id=u.user_id and f.user1_id="+ Long.toString(userID)+" ) "+
+                            "ORDER BY u.YEAR_OF_BIRTH DESC,u.MONTH_OF_BIRTH DESC,u.DAY_OF_BIRTH DESC, u.user_id DESC"
+            );
+            youngRst.next();
+            young = new UserInfo(youngRst.getInt(1), youngRst.getString(2), youngRst.getString(3));
+
+            oldRst.close();
+            youngRst.close();
+            stmt.close();
+            return new AgeInfo(old, young);
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
@@ -393,10 +448,12 @@ public final class StudentFakebookOracle extends FakebookOracle {
     // Query 9
     // -----------------------------------------------------------------------------------
     // GOALS: (A) Find all pairs of users that meet each of the following criteria
-    //              (i) same last name
+    //              (i) same last name (definitely not null)
     //              (ii) same hometown
     //              (iii) are friends
     //              (iv) less than 10 birth years apart
+    // TODO: birth year should not be null, right?
+    // TODO: if no hometown record for a user in hometown city, then it is dropped by join
     public FakebookArrayList<SiblingInfo> findPotentialSiblings() throws SQLException {
         FakebookArrayList<SiblingInfo> results = new FakebookArrayList<SiblingInfo>("\n");
         
@@ -409,6 +466,30 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 SiblingInfo si = new SiblingInfo(u1, u2);
                 results.add(si);
             */
+            ResultSet rst = stmt.executeQuery(
+                    "SELECT u1.user_id, u1.first_name,u1.last_name,u2.user_id, u2.first_name,u2.last_name " +
+                            "FROM " + FriendsTable+" f JOIN " + UsersTable+" u1 " +
+                            "ON f.user1_id=u1.user_id "+
+                            "JOIN " + UsersTable+" u2 " +
+                            "ON f.user2_id=u2.user_id "+
+                            "JOIN " + HometownCitiesTable +" c1 "+
+                            "ON u1.user_id=c1.user_id "+
+                            "JOIN " + HometownCitiesTable +" c2 "+
+                            "ON u2.user_id=c2.user_id "+
+                            "Where u1.last_name=u2.last_name and c1.hometown_city_id=c2.hometown_city_id " +
+                            "and u1.year_of_birth is not null and u2.year_of_birth is not null " +
+                            "and ABS(u1.year_of_birth-u2.year_of_birth)<10 "+
+                            "ORDER BY u1.user_id ASC, u2.user_id ASC"
+            );
+            while(rst.next())
+            {
+                UserInfo u1 = new UserInfo(rst.getInt(1), rst.getString(2), rst.getString(3));
+                UserInfo u2 = new UserInfo(rst.getInt(4), rst.getString(5), rst.getString(6));
+                SiblingInfo si = new SiblingInfo(u1, u2);
+                results.add(si);
+            }
+            rst.close();
+            stmt.close();
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
