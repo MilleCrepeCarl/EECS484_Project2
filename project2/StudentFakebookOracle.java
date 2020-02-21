@@ -125,7 +125,56 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 info.setCommonNameCount(42);
                 return info;
             */
-            return new FirstNameInfo();                // placeholder for compilation
+            ResultSet rst = stmt.executeQuery(
+                "SELECT First_Name, LENGTH(First_Name) AS Length " +
+                "FROM " + UsersTable + " " +
+                "GROUP BY First_Name " +
+                "ORDER BY LENGTH(First_Name) DESC, First_Name ASC"
+            );
+
+            //Long and Short Names
+            FirstNameInfo info = new FirstNameInfo();
+            long long_name_length = 0;
+            long short_name_length = 0;
+            if (rst.last()) {
+                short_name_length = rst.getInt(2);
+            }
+            if (rst.first()) {
+                long_name_length = rst.getInt(2);
+                info.addLongName(rst.getString(1));
+            }
+            while (rst.next()) {
+                if (rst.getInt(2) == long_name_length){
+                    info.addLongName(rst.getString(1));
+                }
+                if (rst.getInt(2) == short_name_length){
+                    info.addShortName(rst.getString(1));
+                }
+            }
+
+            // Common Names
+            rst = stmt.executeQuery(
+                "SELECT First_Name, COUNT(*) AS Named " +
+                "FROM " + UsersTable + " " +
+                "GROUP BY First_Name " +
+                "ORDER BY COUNT(*) DESC, First_Name ASC"
+            );
+
+            long commonCount = 0;
+            if (rst.next()) {
+                commonCount = rst.getInt(2);
+                info.setCommonNameCount(commonCount);
+                info.addCommonName(rst.getString(1));
+            }
+            while (rst.next()) {
+                if (rst.getInt(2) == commonCount) {
+                    info.addCommonName(rst.getString(1));
+                }
+            }
+
+            rst.close();
+            stmt.close();
+            return info;
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
@@ -152,6 +201,21 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 results.add(u1);
                 results.add(u2);
             */
+            ResultSet rst = stmt.executeQuery(
+                "SELECT USER_ID, FIRST_NAME, LAST_NAME " +
+                "FROM " + UsersTable + " " +
+                "WHERE USER_ID NOT IN " +
+                "(SELECT DISTINCT USER1_ID FROM " + FriendsTable +") " +
+                "AND USER_ID NOT IN " +
+                "(SELECT DISTINCT USER2_ID FROM " + FriendsTable +")"
+            );
+
+            while(rst.next()) {
+                UserInfo u1 = new UserInfo(rst.getInt(1), rst.getString(2), rst.getString(3));
+                results.add(u1);
+            }
+            rst.close();
+            stmt.close();
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
@@ -177,6 +241,19 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 results.add(u1);
                 results.add(u2);
             */
+             ResultSet rst = stmt.executeQuery(
+                "SELECT U.USER_ID, U.FIRST_NAME, U.LAST_NAME " +
+                "FROM " + UsersTable + " U, "  + CurrentCitiesTable +
+                " C, " + HometownCitiesTable + " H " +
+                "WHERE U.USER_ID = H.USER_ID AND H.USER_ID = C.USER_ID AND " +
+                "C.CURRENT_CITY_ID != H.HOMETOWN_CITY_ID " +
+                "ORDER BY U.USER_ID"
+            );
+
+            while (rst.next()) {
+                UserInfo u = new UserInfo(rst.getInt(1), rst.getString(2), rst.getString(3));
+                results.add(u);
+            }
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
@@ -303,7 +380,69 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 mp.addSharedPhoto(p);
                 results.add(mp);
             */
+            ResultSet rst = stmt.executeQuery(
+                "SELECT UTAGS.USER1_ID, US1.FIRST_NAME, US1.LAST_NAME, US1.YEAR_OF_BIRTH, " +
+                       "UTAGS.USER2_ID, US2.FIRST_NAME, US2.LAST_NAME, US2.YEAR_OF_BIRTH, " +
+                       "UTAGS.TAGCOUNT, UP.PHOTO_ID, UP.PHOTO_LINK, UP.ALBUM_ID, UP.ALBUM_NAME " +
+                "FROM (" +
+                    "(SELECT USER1_ID, USER2_ID, TAGCOUNT " +
+                    "FROM (" +
+                        "SELECT X.USER1_ID AS USER1_ID, X.USER2_ID AS USER2_ID, Z.TAGCOUNT AS TAGCOUNT " +
+                        "FROM (" +
+                            "(SELECT USER1_ID, USER2_ID " +
+                            "FROM (" +
+                                "SELECT U1.USER_ID AS USER1_ID, U2.USER_ID AS USER2_ID " +
+                                "FROM " + UsersTable + " U1, " + UsersTable + " U2 " +
+                                "WHERE (U1.USER_ID < U2.USER_ID AND U1.GENDER = U2.GENDER AND ABS(U1.YEAR_OF_BIRTH - U2.YEAR_OF_BIRTH) <= " + yearDiff + ") " +
+                                "MINUS " +
+                                "SELECT USER1_ID, USER2_ID " +
+                                "FROM " + FriendsTable +
+                            ")) X " +
+                            "INNER JOIN " +
+                            "(SELECT USER1_ID, USER2_ID, COUNT(*) AS TAGCOUNT " +
+                            "FROM ( " +
+                                "SELECT T1.TAG_SUBJECT_ID AS USER1_ID, T2.TAG_SUBJECT_ID AS USER2_ID " +
+                                "FROM " + TagsTable + " T1 INNER JOIN " + TagsTable + " T2 ON (T1.TAG_PHOTO_ID = T2.TAG_PHOTO_ID AND T1.TAG_SUBJECT_ID < T2.TAG_SUBJECT_ID) " +
+                            ") GROUP BY USER1_ID, USER2_ID) Z " +
+                            "ON X.USER1_ID = Z.USER1_ID AND X.USER2_ID = Z.USER2_ID" +
+                        ") " +
+                        "ORDER BY Z.TAGCOUNT DESC, X.USER1_ID ASC, X.USER2_ID ASC " +
+                    ") WHERE ROWNUM <= " + num +") UTAGS " +
+                "LEFT JOIN " + UsersTable + " US1 ON UTAGS.USER1_ID = US1.USER_ID " +
+                "LEFT JOIN project2.public_users US2 ON UTAGS.USER2_ID = US2.USER_ID) " +
+                "LEFT JOIN ( " +
+                    "SELECT T3.TAG_SUBJECT_ID AS USER1_ID, T4.TAG_SUBJECT_ID AS USER2_ID, P.PHOTO_ID, P.PHOTO_LINK, A.ALBUM_ID, A.ALBUM_NAME " +
+                    "FROM " + TagsTable + " T3 " +
+                        "INNER JOIN project2.public_tags T4 ON (T3.TAG_PHOTO_ID = T4.TAG_PHOTO_ID AND T3.TAG_SUBJECT_ID < T4.TAG_SUBJECT_ID) " +
+                        "INNER JOIN project2.public_photos P ON T3.TAG_PHOTO_ID = P.PHOTO_ID " +
+                        "INNER JOIN project2.public_albums A ON P.ALBUM_ID = A.ALBUM_ID " +
+                    "ORDER BY P.PHOTO_ID " +
+                ") UP ON UTAGS.USER1_ID = UP.USER1_ID AND UTAGS.USER2_ID = UP.USER2_ID " +
+                "ORDER BY UTAGS.TAGCOUNT DESC, UTAGS.USER1_ID ASC, UTAGS.USER2_ID ASC, UP.PHOTO_ID ASC"
+            );
 
+            while (rst.next()) {
+                int user_1_id = rst.getInt(1);
+                int user_2_id = rst.getInt(5);
+                UserInfo u1 = new UserInfo(rst.getInt(1), rst.getString(2), rst.getString(3));
+                UserInfo u2 = new UserInfo(rst.getInt(5), rst.getString(6), rst.getString(7));
+                MatchPair mp = new MatchPair(u1, rst.getInt(4), u2, rst.getInt(8));
+                PhotoInfo p = new PhotoInfo(rst.getInt(10), rst.getInt(12), rst.getString(11), rst.getString(13));
+                mp.addSharedPhoto(p);
+                while(rst.next()) {
+                    if (user_1_id == rst.getInt(1) && user_2_id == rst.getInt(5)) {
+                        PhotoInfo p1 = new PhotoInfo(rst.getInt(10), rst.getInt(12), rst.getString(11), rst.getString(13));
+                        mp.addSharedPhoto(p1);
+                    } else {
+                        rst.previous();
+                        break;
+                    }
+                }
+                results.add(mp);
+            }
+
+            rst.close();
+            stmt.close();
 
         }
         catch (SQLException e) {
