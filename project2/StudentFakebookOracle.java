@@ -473,30 +473,36 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 up.addSharedFriend(u3);
                 results.add(up);
             */
-            stmt.executeUpdate(
-                    "CREATE view allfriends as (" +
-                            "SELECT user1_id as i1, user2_id as i2 " +
-                            "FROM " + FriendsTable +" "+
-                            ")Union( "+
-                            "SELECT user2_id as i1, user1_id as i2 " +
-                            "FROM " + FriendsTable +" "+
-                            ")");
-            stmt.executeUpdate(
-                    "CREATE view mutuals as (" +
-                            "SELECT f1.i1 as i1, f2.i2 as i2, f2.i1 as i3 " +
-                            "FROM allfriends f1 JOIN allfriends f2 " +
-                            "ON f1.i2=f2.i1 " +
-                            "WHERE f1.i1<f2.i2 and not exists (" +
-                            "SELECT * from "+FriendsTable+ " where user1_id=f1.i1 and user2_id=f2.i2 "+
-                            ")"+
-                            ")");
             ArrayList<UsersPair> ups= new ArrayList<UsersPair>();
             ArrayList<Long> i1= new ArrayList<Long>();
             ArrayList<Long> i2= new ArrayList<Long>();
             ResultSet rst = stmt.executeQuery(
                     "SELECT * from (" +
                             "SELECT mutuals.i1 as i1, u1.first_name as f1, u1.last_name as l1, mutuals.i2 as i2, u2.first_name as f2, u2.last_name as l2, count(mutuals.i3) as num "+
-                            "FROM mutuals, "+UsersTable+" u1, "+UsersTable+" u2 "+
+                            "FROM (" +
+                            "SELECT f1.i1 as i1, f2.i2 as i2, f2.i1 as i3 " +
+                            "FROM  ( "+
+                            "(" +
+                                "SELECT user1_id as i1, user2_id as i2 " +
+                                "FROM " + FriendsTable +" "+
+                            ")Union( "+
+                                "SELECT user2_id as i1, user1_id as i2 " +
+                                "FROM " + FriendsTable +" "+
+                            ") "+
+                            ") f1 JOIN ("+
+                            "(" +
+                                "SELECT user1_id as i1, user2_id as i2 " +
+                                "FROM " + FriendsTable +" "+
+                            ")Union( "+
+                                "SELECT user2_id as i1, user1_id as i2 " +
+                                "FROM " + FriendsTable +" "+
+                            ") "+
+                            ") f2 " +
+                            "ON f1.i2=f2.i1 " +
+                            "WHERE f1.i1<f2.i2 and not exists (" +
+                            "SELECT * from "+FriendsTable+ " where user1_id=f1.i1 and user2_id=f2.i2 "+
+                            ")"+
+                            ") mutuals, "+UsersTable+" u1, "+UsersTable+" u2 "+
                             "WHERE mutuals.i1=u1.user_id and mutuals.i2=u2.user_id "+
                             "group by mutuals.i1, u1.first_name, u1.last_name, mutuals.i2, u2.first_name, u2.last_name " +
                             "ORDER by num DESC, mutuals.i1 ASC, mutuals.i2 ASC ) "+
@@ -516,9 +522,37 @@ public final class StudentFakebookOracle extends FakebookOracle {
             for(int j=0;j<num;j++) {
                 ResultSet pairRst = stmt.executeQuery(
                         "SELECT mutuals.i3, u3.first_name, u3.last_name " +
-                                "FROM mutuals, " + UsersTable+" u3 " +
-                                "where u3.user_id=mutuals.i3 and mutuals.i1=" + Long.toString(i1.get(j))+ " and mutuals.i2="+Long.toString(i2.get(j))+" "+
-                                "ORDER by mutuals.i3 ASC");
+                        "FROM " +
+                                "( "+
+                                    "SELECT f1.i1 as i1, f2.i2 as i2, f2.i1 as i3 " +
+                                    "FROM ( "+
+                                            "( "+
+                                                "SELECT user1_id as i1, user2_id as i2 " +
+                                                "FROM " + FriendsTable +" "+
+                                            ") Union" +
+                                            "( "+
+                                                "SELECT user2_id as i1, user1_id as i2 " +
+                                                "FROM " + FriendsTable +" "+
+                                            ") "+
+                                    ") f1 JOIN " +
+                                        "("+
+                                            "(" +
+                                                    "SELECT user1_id as i1, user2_id as i2 " +
+                                                    "FROM " + FriendsTable +" "+
+                                            ")Union" +
+                                            "( "+
+                                                    "SELECT user2_id as i1, user1_id as i2 " +
+                                                    "FROM " + FriendsTable +" "+
+                                            ") "+
+                                        ") f2 " +
+                                    "ON f1.i2=f2.i1 " +
+                                    "WHERE f1.i1<f2.i2 and not exists (" +
+                                        "SELECT * from "+FriendsTable+ " where user1_id=f1.i1 and user2_id=f2.i2 "+
+                                    ")"+
+                                ") "+
+                        "mutuals, " + UsersTable+" u3 " +
+                        "where u3.user_id=mutuals.i3 and mutuals.i1=" + Long.toString(i1.get(j))+ " and mutuals.i2="+Long.toString(i2.get(j))+" "+
+                        "ORDER by mutuals.i3 ASC");
 
                 while(pairRst.next())
                 {
@@ -528,11 +562,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 results.add(ups.get(j));
                 pairRst.close();
             }
-
-            stmt.executeUpdate(
-                    "Drop view mutuals");
-            stmt.executeUpdate(
-                    "Drop view allfriends");
+            
             stmt.close();
 
 
