@@ -294,22 +294,19 @@ public final class StudentFakebookOracle extends FakebookOracle {
             // TODO: photo with no tags.
             // TODO: this function return exactly <num> photos, is that ok?
             ResultSet rst = stmt.executeQuery(
-                    "SELECT COUNT(t.tag_subject_id) AS TagNum, p.photo_id, p.photo_link, p.album_id, a.album_name " +
+                    "SELECT TagNum, pid, plink, aid, aname from ("+
+                    "SELECT COUNT(t.tag_subject_id) AS TagNum, p.photo_id as pid, p.photo_link as plink, p.album_id as aid, a.album_name as aname " +
                             "FROM " + PhotosTable + " p JOIN " + TagsTable+" t " +
                             "ON p.photo_id=t.tag_photo_id "+
                             "JOIN " + AlbumsTable + " a " +
                             "ON p.album_id=a.album_id "+
                             "GROUP BY p.photo_id, p.photo_link, p.album_id, a.album_name " +
-                            "ORDER BY TagNum DESC, p.photo_id ASC");
+                            "ORDER BY TagNum DESC, p.photo_id ASC)"+
+                    "WHERE ROWNUM<="+Integer.toString(num));
 
-            int top=1;
             ArrayList<TaggedPhotoInfo> tps= new ArrayList<TaggedPhotoInfo>();
             ArrayList<Integer> pids= new ArrayList<Integer>();
             while (rst.next()) {// step through result rows/records one by on
-                if (top > num)
-                    break;
-                else
-                    top+=1;
                 int pid = rst.getInt(2);
                 PhotoInfo p = new PhotoInfo(pid, rst.getInt(4), rst.getString(3), rst.getString(5));
                 TaggedPhotoInfo tp = new TaggedPhotoInfo(p);
@@ -461,6 +458,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
     //        (B) For each pair identified in (A), find the IDs, first names, and last names
     //            of all the two users' common friends
     // TODO: num is too large? Return all pairs?
+    // TODO: will it be efficient to use another stmt or save result in java( which is current method)
     public FakebookArrayList<UsersPair> suggestFriends(int num) throws SQLException {
         FakebookArrayList<UsersPair> results = new FakebookArrayList<UsersPair>("\n");
         
@@ -496,47 +494,48 @@ public final class StudentFakebookOracle extends FakebookOracle {
             ArrayList<Long> i1= new ArrayList<Long>();
             ArrayList<Long> i2= new ArrayList<Long>();
             ResultSet rst = stmt.executeQuery(
-                    "SELECT mutuals.i1, u1.first_name, u1.last_name, mutuals.i2, u2.first_name, u2.last_name, count(mutuals.i3) as num "+
-                            "FROM mutuals, " + UsersTable+" u1, "+UsersTable+" u2 "+
+                    "SELECT * from (" +
+                            "SELECT mutuals.i1 as i1, u1.first_name as f1, u1.last_name as l1, mutuals.i2 as i2, u2.first_name as f2, u2.last_name as l2, count(mutuals.i3) as num "+
+                            "FROM mutuals, "+UsersTable+" u1, "+UsersTable+" u2 "+
                             "WHERE mutuals.i1=u1.user_id and mutuals.i2=u2.user_id "+
                             "group by mutuals.i1, u1.first_name, u1.last_name, mutuals.i2, u2.first_name, u2.last_name " +
-                            "ORDER by num DESC, mutuals.i1 ASC, mutuals.i2 ASC");
-            int p=0;
+                            "ORDER by num DESC, mutuals.i1 ASC, mutuals.i2 ASC ) "+
+                            "Where ROWNUM<="+Integer.toString(num)+" ");
             while(rst.next())
             {
-                if(p>=num)
-                    break;
-
                 UserInfo u1 = new UserInfo(rst.getLong(1), rst.getString(2), rst.getString(3));
                 UserInfo u2 = new UserInfo(rst.getLong(4), rst.getString(5), rst.getString(6));
                 UsersPair up = new UsersPair(u1, u2);
+                ups.add(up);
                 i1.add(rst.getLong(1));
                 i2.add(rst.getLong(4));
-                ups.add(up);
             }
             rst.close();
-            System.out.println("Here!");
 
 
             for(int j=0;j<num;j++) {
                 ResultSet pairRst = stmt.executeQuery(
                         "SELECT mutuals.i3, u3.first_name, u3.last_name " +
-                                "FROM mutuals, " + UsersTable+" u3, " +
+                                "FROM mutuals, " + UsersTable+" u3 " +
                                 "where u3.user_id=mutuals.i3 and mutuals.i1=" + Long.toString(i1.get(j))+ " and mutuals.i2="+Long.toString(i2.get(j))+" "+
                                 "ORDER by mutuals.i3 ASC");
+
                 while(pairRst.next())
                 {
-                    UserInfo us = new UserInfo(rst.getInt(1), rst.getString(2), rst.getString(3));
+                    UserInfo us = new UserInfo(pairRst.getInt(1), pairRst.getString(2), pairRst.getString(3));
                     ups.get(j).addSharedFriend(us);
                 }
                 results.add(ups.get(j));
                 pairRst.close();
             }
+
             stmt.executeUpdate(
                     "Drop view mutuals");
             stmt.executeUpdate(
                     "Drop view allfriends");
             stmt.close();
+
+
         }
         catch (SQLException e) {
             System.err.println(e.getMessage());
