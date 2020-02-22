@@ -562,7 +562,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 results.add(ups.get(j));
                 pairRst.close();
             }
-            
+
             stmt.close();
 
 
