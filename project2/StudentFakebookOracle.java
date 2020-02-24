@@ -15,6 +15,7 @@ import java.util.List;
 public final class StudentFakebookOracle extends FakebookOracle {
     // [Constructor]
     // REQUIRES: <connection> is a valid JDBC connection
+    // TODO: use getLong() to get ID
     public StudentFakebookOracle(Connection connection) {
         oracle = connection;
     }
@@ -289,10 +290,6 @@ public final class StudentFakebookOracle extends FakebookOracle {
             // Step 1
             // ------------
             // Find the  tag number of top <num> photos
-            // TODO: do we need to return all values?
-            // TODO: first select all photo_ids in (A), then for each photo id do one query. Is it efficient?
-            // TODO: photo with no tags.
-            // TODO: this function return exactly <num> photos, is that ok?
             ResultSet rst = stmt.executeQuery(
                     "SELECT TagNum, pid, plink, aid, aname from ("+
                     "SELECT COUNT(t.tag_subject_id) AS TagNum, p.photo_id as pid, p.photo_link as plink, p.album_id as aid, a.album_name as aname " +
@@ -377,6 +374,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 mp.addSharedPhoto(p);
                 results.add(mp);
             */
+            //TODO: when no common tag, the iser pair should not be returned right?
             ResultSet rst = stmt.executeQuery(
                 "SELECT UTAGS.USER1_ID, US1.FIRST_NAME, US1.LAST_NAME, US1.YEAR_OF_BIRTH, " +
                        "UTAGS.USER2_ID, US2.FIRST_NAME, US2.LAST_NAME, US2.YEAR_OF_BIRTH, " +
@@ -633,7 +631,6 @@ public final class StudentFakebookOracle extends FakebookOracle {
     //        (B) Find the ID, first name, and last name of the youngest friend of the user
     //            with User ID <userID>
     // TODO: in friends table one can not friend with self right?
-    // TODO: Ask GSIs about when to use long and when to use int
     public AgeInfo findAgeInfo(long userID) throws SQLException {
         try (Statement stmt = oracle.createStatement(FakebookOracleConstants.AllScroll, FakebookOracleConstants.ReadOnly)) {
             /*
@@ -683,7 +680,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
     //              (ii) same hometown
     //              (iii) are friends
     //              (iv) less than 10 birth years apart
-    // TODO: birth year should not be null, right?
+    // TODO: birth year be null should ignore, right?
     // TODO: if no hometown record for a user in hometown city, then it is dropped by join
     public FakebookArrayList<SiblingInfo> findPotentialSiblings() throws SQLException {
         FakebookArrayList<SiblingInfo> results = new FakebookArrayList<SiblingInfo>("\n");
