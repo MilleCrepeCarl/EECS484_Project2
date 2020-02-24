@@ -15,7 +15,6 @@ import java.util.List;
 public final class StudentFakebookOracle extends FakebookOracle {
     // [Constructor]
     // REQUIRES: <connection> is a valid JDBC connection
-    // TODO: use getLong() to get ID
     public StudentFakebookOracle(Connection connection) {
         oracle = connection;
     }
@@ -138,17 +137,17 @@ public final class StudentFakebookOracle extends FakebookOracle {
             long long_name_length = 0;
             long short_name_length = 0;
             if (rst.last()) {
-                short_name_length = rst.getInt(2);
+                short_name_length = rst.getLong(2);
             }
             if (rst.first()) {
-                long_name_length = rst.getInt(2);
+                long_name_length = rst.getLong(2);
                 info.addLongName(rst.getString(1));
             }
             while (rst.next()) {
-                if (rst.getInt(2) == long_name_length){
+                if (rst.getLong(2) == long_name_length){
                     info.addLongName(rst.getString(1));
                 }
-                if (rst.getInt(2) == short_name_length){
+                if (rst.getLong(2) == short_name_length){
                     info.addShortName(rst.getString(1));
                 }
             }
@@ -163,12 +162,12 @@ public final class StudentFakebookOracle extends FakebookOracle {
 
             long commonCount = 0;
             if (rst.next()) {
-                commonCount = rst.getInt(2);
+                commonCount = rst.getLong(2);
                 info.setCommonNameCount(commonCount);
                 info.addCommonName(rst.getString(1));
             }
             while (rst.next()) {
-                if (rst.getInt(2) == commonCount) {
+                if (rst.getLong(2) == commonCount) {
                     info.addCommonName(rst.getString(1));
                 }
             }
@@ -212,7 +211,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
             );
 
             while(rst.next()) {
-                UserInfo u1 = new UserInfo(rst.getInt(1), rst.getString(2), rst.getString(3));
+                UserInfo u1 = new UserInfo(rst.getLong(1), rst.getString(2), rst.getString(3));
                 results.add(u1);
             }
             rst.close();
@@ -252,7 +251,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
             );
 
             while (rst.next()) {
-                UserInfo u = new UserInfo(rst.getInt(1), rst.getString(2), rst.getString(3));
+                UserInfo u = new UserInfo(rst.getLong(1), rst.getString(2), rst.getString(3));
                 results.add(u);
             }
         }
@@ -302,17 +301,17 @@ public final class StudentFakebookOracle extends FakebookOracle {
                     "WHERE ROWNUM<="+Integer.toString(num));
 
             ArrayList<TaggedPhotoInfo> tps= new ArrayList<TaggedPhotoInfo>();
-            ArrayList<Integer> pids= new ArrayList<Integer>();
+            ArrayList<Long> pids= new ArrayList<Long>();
             while (rst.next()) {// step through result rows/records one by on
-                int pid = rst.getInt(2);
-                PhotoInfo p = new PhotoInfo(pid, rst.getInt(4), rst.getString(3), rst.getString(5));
+                long pid = rst.getLong(2);
+                PhotoInfo p = new PhotoInfo(pid, rst.getLong(4), rst.getString(3), rst.getString(5));
                 TaggedPhotoInfo tp = new TaggedPhotoInfo(p);
                 tps.add(tp);
                 pids.add(pid);
 
             }
             for(int i=0;i<tps.size();i++) {
-                int pid=pids.get(i);
+                long pid=pids.get(i);
                 TaggedPhotoInfo tp=tps.get(i);
                 ResultSet curRst = stmt.executeQuery(
                         "SELECT u.user_id, u.first_name, u.last_name " +
@@ -320,11 +319,11 @@ public final class StudentFakebookOracle extends FakebookOracle {
                                 "ON p.photo_id=t.tag_photo_id " +
                                 "join " + UsersTable + " u " +
                                 "ON u.user_id=t.tag_subject_id " +
-                                "WHERE p.photo_id=" + Integer.toString(pid) + " " +
+                                "WHERE p.photo_id=" + Long.toString(pid) + " " +
                                 "ORDER by u.user_id ASC");
 
                 while (curRst.next()) {
-                    UserInfo u = new UserInfo(curRst.getInt(1), curRst.getString(2), curRst.getString(3));
+                    UserInfo u = new UserInfo(curRst.getLong(1), curRst.getString(2), curRst.getString(3));
                     tp.addTaggedUser(u);
                 }
                 // Step 4
@@ -417,16 +416,16 @@ public final class StudentFakebookOracle extends FakebookOracle {
             );
 
             while (rst.next()) {
-                int user_1_id = rst.getInt(1);
-                int user_2_id = rst.getInt(5);
-                UserInfo u1 = new UserInfo(rst.getInt(1), rst.getString(2), rst.getString(3));
-                UserInfo u2 = new UserInfo(rst.getInt(5), rst.getString(6), rst.getString(7));
-                MatchPair mp = new MatchPair(u1, rst.getInt(4), u2, rst.getInt(8));
-                PhotoInfo p = new PhotoInfo(rst.getInt(10), rst.getInt(12), rst.getString(11), rst.getString(13));
+                long user_1_id = rst.getLong(1);
+                long user_2_id = rst.getLong(5);
+                UserInfo u1 = new UserInfo(rst.getLong(1), rst.getString(2), rst.getString(3));
+                UserInfo u2 = new UserInfo(rst.getLong(5), rst.getString(6), rst.getString(7));
+                MatchPair mp = new MatchPair(u1, rst.getLong(4), u2, rst.getLong(8));
+                PhotoInfo p = new PhotoInfo(rst.getLong(10), rst.getLong(12), rst.getString(11), rst.getString(13));
                 mp.addSharedPhoto(p);
                 while(rst.next()) {
-                    if (user_1_id == rst.getInt(1) && user_2_id == rst.getInt(5)) {
-                        PhotoInfo p1 = new PhotoInfo(rst.getInt(10), rst.getInt(12), rst.getString(11), rst.getString(13));
+                    if (user_1_id == rst.getLong(1) && user_2_id == rst.getLong(5)) {
+                        PhotoInfo p1 = new PhotoInfo(rst.getLong(10), rst.getLong(12), rst.getString(11), rst.getString(13));
                         mp.addSharedPhoto(p1);
                     } else {
                         rst.previous();
@@ -554,7 +553,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
 
                 while(pairRst.next())
                 {
-                    UserInfo us = new UserInfo(pairRst.getInt(1), pairRst.getString(2), pairRst.getString(3));
+                    UserInfo us = new UserInfo(pairRst.getLong(1), pairRst.getString(2), pairRst.getString(3));
                     ups.get(j).addSharedFriend(us);
                 }
                 results.add(ups.get(j));
@@ -593,17 +592,17 @@ public final class StudentFakebookOracle extends FakebookOracle {
                             "FROM " + EventsTable + " e JOIN " + CitiesTable+" c " +
                             "ON e.event_city_id=c.city_id "+
                             "GROUP BY c.state_name");
-            int maxNum=0;
+            long maxNum=0;
             while(rst.next())
             {
-                maxNum=rst.getInt(1);
+                maxNum=rst.getLong(1);
             }
             ResultSet secondrst = stmt.executeQuery(
                     "SELECT c.state_name " +
                             "FROM " + EventsTable + " e JOIN " + CitiesTable+" c " +
                             "ON e.event_city_id=c.city_id "+
                             "GROUP BY c.state_name " +
-                            "Having count(e.event_id)="+Integer.toString(maxNum)+" "+
+                            "Having count(e.event_id)="+Long.toString(maxNum)+" "+
                             "ORDER BY c.state_name ASC");
             EventStateInfo info = new EventStateInfo(maxNum);
             while(secondrst.next())
@@ -650,7 +649,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
             UserInfo young;
 
             oldRst.next();
-            old = new UserInfo(oldRst.getInt(1), oldRst.getString(2), oldRst.getString(3));
+            old = new UserInfo(oldRst.getLong(1), oldRst.getString(2), oldRst.getString(3));
 
             ResultSet youngRst = stmt.executeQuery(
                     "SELECT u.user_id, u.first_name,u.last_name " +
@@ -659,7 +658,7 @@ public final class StudentFakebookOracle extends FakebookOracle {
                             "ORDER BY u.YEAR_OF_BIRTH DESC,u.MONTH_OF_BIRTH DESC,u.DAY_OF_BIRTH DESC, u.user_id DESC"
             );
             youngRst.next();
-            young = new UserInfo(youngRst.getInt(1), youngRst.getString(2), youngRst.getString(3));
+            young = new UserInfo(youngRst.getLong(1), youngRst.getString(2), youngRst.getString(3));
 
             oldRst.close();
             youngRst.close();
@@ -711,8 +710,8 @@ public final class StudentFakebookOracle extends FakebookOracle {
             );
             while(rst.next())
             {
-                UserInfo u1 = new UserInfo(rst.getInt(1), rst.getString(2), rst.getString(3));
-                UserInfo u2 = new UserInfo(rst.getInt(4), rst.getString(5), rst.getString(6));
+                UserInfo u1 = new UserInfo(rst.getLong(1), rst.getString(2), rst.getString(3));
+                UserInfo u2 = new UserInfo(rst.getLong(4), rst.getString(5), rst.getString(6));
                 SiblingInfo si = new SiblingInfo(u1, u2);
                 results.add(si);
             }
