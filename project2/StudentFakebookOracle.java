@@ -207,7 +207,8 @@ public final class StudentFakebookOracle extends FakebookOracle {
                 "WHERE USER_ID NOT IN " +
                 "(SELECT DISTINCT USER1_ID FROM " + FriendsTable +") " +
                 "AND USER_ID NOT IN " +
-                "(SELECT DISTINCT USER2_ID FROM " + FriendsTable +")"
+                "(SELECT DISTINCT USER2_ID FROM " + FriendsTable +")" +
+                "ORDER BY USER_ID"
             );
 
             while(rst.next()) {
@@ -403,13 +404,13 @@ public final class StudentFakebookOracle extends FakebookOracle {
                         "ORDER BY Z.TAGCOUNT DESC, X.USER1_ID ASC, X.USER2_ID ASC " +
                     ") WHERE ROWNUM <= " + num +") UTAGS " +
                 "LEFT JOIN " + UsersTable + " US1 ON UTAGS.USER1_ID = US1.USER_ID " +
-                "LEFT JOIN project2.public_users US2 ON UTAGS.USER2_ID = US2.USER_ID) " +
+                "LEFT JOIN " + UsersTable + " US2 ON UTAGS.USER2_ID = US2.USER_ID) " +
                 "LEFT JOIN ( " +
                     "SELECT T3.TAG_SUBJECT_ID AS USER1_ID, T4.TAG_SUBJECT_ID AS USER2_ID, P.PHOTO_ID, P.PHOTO_LINK, A.ALBUM_ID, A.ALBUM_NAME " +
                     "FROM " + TagsTable + " T3 " +
-                        "INNER JOIN project2.public_tags T4 ON (T3.TAG_PHOTO_ID = T4.TAG_PHOTO_ID AND T3.TAG_SUBJECT_ID < T4.TAG_SUBJECT_ID) " +
-                        "INNER JOIN project2.public_photos P ON T3.TAG_PHOTO_ID = P.PHOTO_ID " +
-                        "INNER JOIN project2.public_albums A ON P.ALBUM_ID = A.ALBUM_ID " +
+                        "INNER JOIN " + TagsTable + " T4 ON (T3.TAG_PHOTO_ID = T4.TAG_PHOTO_ID AND T3.TAG_SUBJECT_ID < T4.TAG_SUBJECT_ID) " +
+                        "INNER JOIN " + PhotosTable +" P ON T3.TAG_PHOTO_ID = P.PHOTO_ID " +
+                        "INNER JOIN " + AlbumsTable + " A ON P.ALBUM_ID = A.ALBUM_ID " +
                     "ORDER BY P.PHOTO_ID " +
                 ") UP ON UTAGS.USER1_ID = UP.USER1_ID AND UTAGS.USER2_ID = UP.USER2_ID " +
                 "ORDER BY UTAGS.TAGCOUNT DESC, UTAGS.USER1_ID ASC, UTAGS.USER2_ID ASC, UP.PHOTO_ID ASC"
